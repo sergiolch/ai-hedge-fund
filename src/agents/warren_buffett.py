@@ -66,7 +66,7 @@ def warren_buffett_agent(state: AgentState):
 
         # Add margin of safety analysis if we have both intrinsic value and current price
         margin_of_safety = None
-        intrinsic_value = intrinsic_value_analysis["intrinsic_value"]
+        intrinsic_value = intrinsic_value_analysis.get("intrinsic_value")
         if intrinsic_value and market_cap:
             margin_of_safety = (intrinsic_value - market_cap) / market_cap
 
@@ -238,12 +238,12 @@ def calculate_owner_earnings(financial_line_items: list) -> dict[str, any]:
 def calculate_intrinsic_value(financial_line_items: list) -> dict[str, any]:
     """Calculate intrinsic value using DCF with owner earnings."""
     if not financial_line_items:
-        return {"value": None, "details": ["Insufficient data for valuation"]}
+        return {"intrinsic_value": None, "details": ["Insufficient data for valuation"]}
 
     # Calculate owner earnings
     earnings_data = calculate_owner_earnings(financial_line_items)
     if not earnings_data["owner_earnings"]:
-        return {"value": None, "details": earnings_data["details"]}
+        return {"intrinsic_value": None, "details": earnings_data["details"]}
 
     owner_earnings = earnings_data["owner_earnings"]
 
@@ -252,7 +252,7 @@ def calculate_intrinsic_value(financial_line_items: list) -> dict[str, any]:
     shares_outstanding = latest_financial_line_items.outstanding_shares
 
     if not shares_outstanding:
-        return {"value": None, "details": ["Missing shares outstanding data"]}
+        return {"intrinsic_value": None, "details": ["Missing shares outstanding data"]}
 
     # Buffett's DCF assumptions
     growth_rate = 0.05  # Conservative 5% growth

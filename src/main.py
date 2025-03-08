@@ -25,7 +25,6 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from tabulate import tabulate
 from utils.visualize import save_graph_as_png
-import json
 
 # Load environment variables from .env file
 load_dotenv()
@@ -34,19 +33,35 @@ init(autoreset=True)
 
 
 def parse_hedge_fund_response(response):
-    """Parses a JSON string and returns a dictionary."""
-    try:
-        return json.loads(response)
-    except json.JSONDecodeError as e:
-        print(f"JSON decoding error: {e}\nResponse: {repr(response)}")
-        return None
-    except TypeError as e:
-        print(f"Invalid response type (expected string, got {type(response).__name__}): {e}")
-        return None
-    except Exception as e:
-        print(f"Unexpected error while parsing response: {e}\nResponse: {repr(response)}")
-        return None
+    import json
+    import re
 
+    try:
+        # First try to parse as JSON directly
+        return json.loads(response)
+    except json.JSONDecodeError:
+        # If direct parsing fails, try to extract JSON from the response
+        try:
+            # Look for a complete JSON object in the response
+            # This pattern looks for an object that starts with { and ends with }
+            # and tries to capture the most complete JSON structure
+            json_pattern = r'(\{(?:[^{}]|(?:\{(?:[^{}]|(?:\{[^{}]*\}))*\}))*\})'
+            json_matches = re.findall(json_pattern, response)
+            
+            if json_matches:
+                # Try each match, starting with the longest (most complete) one
+                sorted_matches = sorted(json_matches, key=len, reverse=True)
+                for json_str in sorted_matches:
+                    try:
+                        return json.loads(json_str)
+                    except json.JSONDecodeError:
+                        continue
+        except Exception as e:
+            print(f"Error extracting JSON: {e}")
+        
+        # If all extraction attempts fail, log the error and return None
+        print(f"Error parsing response: {response}")
+        return None
 
 
 ##### Run the Hedge Fund #####
@@ -165,6 +180,12 @@ if __name__ == "__main__":
     parser.add_argument(
         "--show-agent-graph", action="store_true", help="Show the agent graph"
     )
+    parser.add_argument(
+        "--model", type=str, help="LLM model name to use (bypasses interactive selection)"
+    )
+    parser.add_argument(
+        "--provider", type=str, help="LLM provider to use (bypasses interactive selection)"
+    )
 
     args = parser.parse_args()
 
@@ -196,29 +217,39 @@ if __name__ == "__main__":
         print(f"\nSelected analysts: {', '.join(Fore.GREEN + choice.title().replace('_', ' ') + Style.RESET_ALL for choice in choices)}\n")
 
     # Select LLM model
-    model_choice = questionary.select(
-        "Select your LLM model:",
-        choices=[questionary.Choice(display, value=value) for display, value, _ in LLM_ORDER],
-        style=questionary.Style([
-            ("selected", "fg:green bold"),
-            ("pointer", "fg:green bold"),
-            ("highlighted", "fg:green"),
-            ("answer", "fg:green bold"),
-        ])
-    ).ask()
-
-    if not model_choice:
-        print("\n\nInterrupt received. Exiting...")
-        sys.exit(0)
+    model_choice = None
+    model_provider = None
+    
+    # Check if model and provider are specified in command line args
+    if args.model and args.provider:
+        model_choice = args.model
+        model_provider = args.provider
+        print(f"\nUsing specified {Fore.CYAN}{model_provider}{Style.RESET_ALL} model: {Fore.GREEN + Style.BRIGHT}{model_choice}{Style.RESET_ALL}\n")
     else:
-        # Get model info using the helper function
-        model_info = get_model_info(model_choice)
-        if model_info:
-            model_provider = model_info.provider.value
-            print(f"\nSelected {Fore.CYAN}{model_provider}{Style.RESET_ALL} model: {Fore.GREEN + Style.BRIGHT}{model_choice}{Style.RESET_ALL}\n")
+        # Interactive model selection
+        model_choice = questionary.select(
+            "Select your LLM model:",
+            choices=[questionary.Choice(display, value=value) for display, value, _ in LLM_ORDER],
+            style=questionary.Style([
+                ("selected", "fg:green bold"),
+                ("pointer", "fg:green bold"),
+                ("highlighted", "fg:green"),
+                ("answer", "fg:green bold"),
+            ])
+        ).ask()
+        
+        if not model_choice:
+            print("\n\nInterrupt received. Exiting...")
+            sys.exit(0)
         else:
-            model_provider = "Unknown"
-            print(f"\nSelected model: {Fore.GREEN + Style.BRIGHT}{model_choice}{Style.RESET_ALL}\n")
+            # Get model info using the helper function
+            model_info = get_model_info(model_choice)
+            if model_info:
+                model_provider = model_info.provider.value
+                print(f"\nSelected {Fore.CYAN}{model_provider}{Style.RESET_ALL} model: {Fore.GREEN + Style.BRIGHT}{model_choice}{Style.RESET_ALL}\n")
+            else:
+                model_provider = "Unknown"
+                print(f"\nSelected model: {Fore.GREEN + Style.BRIGHT}{model_choice}{Style.RESET_ALL}\n")
 
     # Create the workflow with selected analysts
     workflow = create_workflow(selected_analysts)
@@ -285,4 +316,4 @@ if __name__ == "__main__":
         model_name=model_choice,
         model_provider=model_provider,
     )
-    print_trading_output(result)
+    print_trading_output(result, show_reasoning=args.show_reasoning)

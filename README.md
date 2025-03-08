@@ -79,12 +79,18 @@ OPENAI_API_KEY=your-openai-api-key
 # Get your Groq API key from https://groq.com/
 GROQ_API_KEY=your-groq-api-key
 
+# For running LLMs hosted by anthropic (llama3, etc.)
+# Get your Anthropic API key from https://anthropic.com/
+ANTHROPIC_API_KEY=your-anthropic-api-key
+
 # For getting financial data to power the hedge fund
 # Get your Financial Datasets API key from https://financialdatasets.ai/
 FINANCIAL_DATASETS_API_KEY=your-financial-datasets-api-key
 ```
 
 **Important**: You must set `OPENAI_API_KEY`, `GROQ_API_KEY`, or `ANTHROPIC_API_KEY` for the hedge fund to work.  If you want to use LLMs from all providers, you will need to set all API keys.
+
+You can also use Ollama as a local LLM provider, which doesn't require an API key. See the [Using Ollama](#using-ollama) section below for more details.
 
 Financial data for AAPL, GOOGL, MSFT, NVDA, and TSLA is free and does not require an API key.
 
@@ -110,6 +116,76 @@ You can optionally specify the start and end dates to make decisions for a speci
 ```bash
 poetry run python src/main.py --ticker AAPL,MSFT,NVDA --start-date 2024-01-01 --end-date 2024-03-01 
 ```
+
+### Using Ollama
+
+You can use [Ollama](https://ollama.com/) as a local LLM provider, which allows you to run models locally without requiring an API key. This is useful for development, testing, or if you prefer not to use cloud-based LLM providers.
+
+#### Setup Ollama
+
+1. Install Ollama from [ollama.com](https://ollama.com/)
+2. Pull the models you want to use:
+```bash
+ollama pull mistral    # Pull the Mistral model
+ollama pull mixtral:8x7b    # Pull the Mixtral model
+ollama pull llama3.3     # Pull the Llama 3.3 model
+```
+
+3. Add the Ollama base URL to your .env file:
+```bash
+# ollama 
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+#### Running with Ollama
+
+You can run the hedge fund with Ollama in two ways:
+
+1. Using the provided script (recommended):
+```bash
+./run_with_ollama.sh
+```
+
+This script accepts several options:
+```bash
+# Basic usage with default settings
+./run_with_ollama.sh
+
+# Specify a different model and tickers
+./run_with_ollama.sh --model llama3.3 --tickers TSLA,GOOGL,META --show-reasoning
+```
+
+Available options:
+- `--model` or `-m`: Specify the Ollama model to use (default: mistral)
+- `--tickers` or `-t`: Comma-separated list of tickers (default: AAPL,MSFT,NVDA)
+- `--show-reasoning` or `-r`: Show reasoning from each agent
+- `--help` or `-h`: Show help message
+
+2. Using the main script directly:
+```bash
+poetry run python src/main.py --tickers AAPL,MSFT,NVDA --model mistral --provider Ollama
+```
+
+#### Ollama Integration Features
+
+The Ollama integration includes several features to ensure reliable operation with local LLMs:
+
+1. **Enhanced JSON Parsing**: Robust extraction of structured data from Ollama's text responses
+2. **Signal Normalization**: Automatically converts non-standard signal values (like "cautious" or "slightly bullish") to standard values (neutral, bullish, bearish)
+3. **Fallback Mechanisms**: Graceful handling of parsing errors with sensible defaults
+4. **Flexible Model Selection**: Support for any model available in your local Ollama installation
+
+#### Troubleshooting Ollama
+
+If you encounter issues with Ollama:
+
+1. Ensure Ollama is running: `ollama serve`
+2. Verify the model is pulled: `ollama list`
+3. Check the Ollama base URL in your .env file
+4. For complex models like llama3, increase the timeout in your environment variables:
+   ```
+   LANGCHAIN_OLLAMA_TIMEOUT=120
+   ```
 
 ### Running the Backtester
 

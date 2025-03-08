@@ -13,12 +13,13 @@ def sort_analyst_signals(signals):
     return sorted(signals, key=lambda x: analyst_order.get(x[0], 999))
 
 
-def print_trading_output(result: dict) -> None:
+def print_trading_output(result: dict, show_reasoning: bool = False) -> None:
     """
     Print formatted trading results with colored tables for multiple tickers.
 
     Args:
         result (dict): Dictionary containing decisions and analyst signals for multiple tickers
+        show_reasoning (bool): Whether to show the reasoning for each decision
     """
     decisions = result.get("decisions")
     if not decisions:
@@ -83,8 +84,28 @@ def print_trading_output(result: dict) -> None:
         print(f"\n{Fore.WHITE}{Style.BRIGHT}TRADING DECISION:{Style.RESET_ALL} [{Fore.CYAN}{ticker}{Style.RESET_ALL}]")
         print(tabulate(decision_data, tablefmt="grid", colalign=("left", "right")))
 
-        # Print Reasoning
-        print(f"\n{Fore.WHITE}{Style.BRIGHT}Reasoning:{Style.RESET_ALL} {Fore.CYAN}{decision.get('reasoning')}{Style.RESET_ALL}")
+        # Print Reasoning only if show_reasoning is True
+        if show_reasoning:
+            reasoning = decision.get('reasoning', '')
+            # Clean up any JSON fragments that might be in the reasoning
+            if reasoning:
+                # Remove any JSON-like structures from the reasoning
+                import re
+                # Remove complete JSON objects
+                reasoning = re.sub(r'\{[^{}]*\}', '', reasoning)
+                # Remove nested JSON objects with one level of nesting
+                reasoning = re.sub(r'\{(?:[^{}]|(?:\{[^{}]*\}))*\}', '', reasoning)
+                # Remove any remaining JSON syntax
+                reasoning = re.sub(r'["{},]', ' ', reasoning)
+                # Remove ticker references like "AAPL:"
+                reasoning = re.sub(r'"?[A-Z]{1,5}"?\s*:', '', reasoning)
+                # Clean up extra whitespace
+                reasoning = re.sub(r'\s+', ' ', reasoning).strip()
+                
+                if not reasoning or reasoning == "null":
+                    reasoning = "No detailed reasoning provided."
+                    
+            print(f"\n{Fore.WHITE}{Style.BRIGHT}Reasoning:{Style.RESET_ALL} {Fore.CYAN}{reasoning}{Style.RESET_ALL}")
 
     # Print Portfolio Summary
     print(f"\n{Fore.WHITE}{Style.BRIGHT}PORTFOLIO SUMMARY:{Style.RESET_ALL}")

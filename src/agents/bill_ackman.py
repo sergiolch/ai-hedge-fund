@@ -74,7 +74,28 @@ def bill_ackman_agent(state: AgentState):
             signal = "bearish"
         else:
             signal = "neutral"
-        
+
+        # Make sure the signal fits the expected format for the Pydantic model
+        signal_mapping = {
+            "cautious": "neutral",
+            "cautious bearish": "bearish",
+            "cautious bullish": "bullish",
+            "cautiously bearish": "bearish",
+            "cautiously bullish": "bullish",
+            "slightly bearish": "bearish",
+            "slightly bullish": "bullish",
+            "moderately bearish": "bearish",
+            "moderately bullish": "bullish",
+            "strongly bearish": "bearish",
+            "strongly bullish": "bullish",
+            "very bearish": "bearish",
+            "very bullish": "bullish",
+            "buy": "bullish",
+            "sell": "bearish",
+            "hold": "neutral"
+        }
+        signal = signal_mapping.get(signal.lower(), signal)
+
         analysis_data[ticker] = {
             "signal": signal,
             "score": total_score,
@@ -378,6 +399,13 @@ def generate_ackman_output(
               "confidence": float (0-100),
               "reasoning": "string"
             }}
+            
+            IMPORTANT: For the "signal" field, you MUST ONLY use one of these three exact values:
+            - "bullish" (positive outlook, recommend buying)
+            - "bearish" (negative outlook, recommend selling)
+            - "neutral" (hold or wait, neither bullish nor bearish)
+            
+            Do NOT use modifiers like "cautiously bullish" or "slightly bearish" - ONLY use "bullish", "bearish", or "neutral".
             """
         )
     ])
